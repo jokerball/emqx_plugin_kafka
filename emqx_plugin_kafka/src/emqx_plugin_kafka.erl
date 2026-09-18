@@ -28,6 +28,7 @@
 -export([
     on_client_connected/2,
     on_client_disconnected/3,
+    on_client_heartbeat/2,
     on_message_publish/1,
     on_session_subscribed/3,
     on_message_delivered/2,
@@ -52,6 +53,7 @@
 
 %% @doc Register hooks when plugin starts
 hook() ->
+    emqx_hooks:add('client.heartbeat', {?MODULE, on_client_heartbeat, []}, ?HP_HIGHEST),
     emqx_hooks:add('client.connected', {?MODULE, on_client_connected, []}, ?HP_HIGHEST),
     emqx_hooks:add('client.disconnected', {?MODULE, on_client_disconnected, []}, ?HP_HIGHEST),
     emqx_hooks:add('message.publish', {?MODULE, on_message_publish, []}, ?HP_HIGHEST),
@@ -61,6 +63,7 @@ hook() ->
 
 %% @doc Unregister hooks when plugin stops
 unhook() ->
+    emqx_hooks:del('client.heartbeat', {?MODULE, on_client_heartbeat}),
     emqx_hooks:del('client.connected', {?MODULE, on_client_connected}),
     emqx_hooks:del('client.disconnected', {?MODULE, on_client_disconnected}),
     emqx_hooks:del('message.publish', {?MODULE, on_message_publish}),
@@ -72,20 +75,39 @@ unhook() ->
 %% Hook callbacks - Client lifecycle
 %%--------------------------------------------------------------------
 
+%% @doc Client heartbeat (PINGREQ) - send periodic heartbeat to Kafka
+on_client_heartbeat(ClientInfo, ConnInfo) ->
+    ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
+    Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
+    Keepalive = maps:get(keepalive, ConnInfo, 0),
+    SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
+    ?SLOG(debug, #{msg => "kafka_client_heartbeat", clientid => ClientId}),
+    Now = now_mill_secs(),
+    Payload = [
+        {action, <<"heartbeat">>},
+        {protocol, Protocol},
+        {conn_type, SockType},
+        {device_id, ClientId},
+        {keepalive, Keepalive},
+        {ts, Now},
+        {cluster_node, node()}
+    ],
+    produce_kafka_payload(ClientId, Payload, on_client_heartbeat),
+    ok.
+
 %% @doc Client connected - send heartbeat (online)
-%% NOTE: EMQX 5 removed 'client.heartbeat' hook.
-%% We use client.connected (online) + client.disconnected (offline) instead.
 on_client_connected(ClientInfo, ConnInfo) ->
     ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
     Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
     Keepalive = maps:get(keepalive, ConnInfo, 0),
+    SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
     logger:warning("on_client_connected: clientid=~s protocol=~s keepalive=~p~n", [ClientId, Protocol, Keepalive]),
     ?SLOG(debug, #{msg => "kafka_client_connected", clientid => ClientId}),
     Now = now_mill_secs(),
     Payload = [
         {action, <<"heartbeat">>},
         {protocol, Protocol},
-        {conn_type, <<"tcp">>},
+        {conn_type, SockType},
         {device_id, ClientId},
         {keepalive, Keepalive},
         {ts, Now},
@@ -99,13 +121,14 @@ on_client_disconnected(ClientInfo, _Reason, ConnInfo) ->
     ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
     Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
     Keepalive = maps:get(keepalive, ConnInfo, 0),
+    SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
     logger:warning("on_client_disconnected: clientid=~s reason=~p~n", [ClientId, _Reason]),
     ?SLOG(debug, #{msg => "kafka_client_disconnected", clientid => ClientId}),
     Now = now_mill_secs(),
     Payload = [
         {action, <<"heartbeat">>},
         {protocol, Protocol},
-        {conn_type, <<"tcp">>},
+        {conn_type, SockType},
         {device_id, ClientId},
         {keepalive, Keepalive},
         {ts, Now},
