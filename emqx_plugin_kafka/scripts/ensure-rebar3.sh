@@ -28,7 +28,7 @@ DOWNLOAD_URL='https://github.com/emqx/rebar3/releases/download'
 
 download() {
     echo "downloading rebar3 ${VERSION}"
-    curl -f -L "${DOWNLOAD_URL}/${VERSION}/rebar3" -o ./rebar3
+    curl -f -L --http1.1 --retry 5 --retry-delay 3 "${DOWNLOAD_URL}/${VERSION}/rebar3" -o ./rebar3
 }
 
 # get the version number from the second line of the escript
