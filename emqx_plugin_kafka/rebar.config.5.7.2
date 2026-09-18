@@ -1,0 +1,63 @@
+%% -*- mode: erlang -*-
+%% ============================================================
+%% EMQX 5.7.2 版本配置
+%% 基于原 5.8.9 版本 rebar.config 修改
+%% ============================================================
+%% 修改点:
+%%   1. emqx_plugin_helper: v5.9.1 -> v5.7.0 (匹配 EMQX 5.7.x)
+%%   2. emqx_plugrel: 0.6.3 -> 0.5.1 (匹配 EMQX 5.7.x 打包工具)
+%%   3. compatibility: "~> 5.7" (不变, 已正确)
+%% ============================================================
+{deps, [
+    {emqx_plugin_helper, {git, "https://github.com/emqx/emqx-plugin-helper.git", {tag, "v5.7.0"}}},
+    {brod, {git, "https://github.com/kafka4beam/brod.git", {tag, "3.16.8"}}}
+    
+]}.
+
+{plugins, [
+    {emqx_plugrel, {git, "https://github.com/emqx/emqx_plugrel.git", {tag, "0.5.1"}}}
+]}.
+
+{project_plugins, [{erlfmt, "1.6.0"}]}.
+
+{erl_opts, [debug_info]}.
+
+%% Sync release version to app version in VERSION file.
+%% app.src uses: {vsn, {file, "VERSION"}}.
+{pre_hooks, [
+    {"(linux|darwin)", compile,
+        "erl -noshell -eval '{ok, Terms} = file:consult(\"rebar.config\"), "
+        "{relx, Relx} = lists:keyfind(relx, 1, Terms), "
+        "{release, {_, Vsn}, _} = lists:keyfind(release, 1, Relx), "
+        "ok = file:write_file(\"VERSION\", [Vsn, $\\n]), "
+        "halt().'"}
+]}.
+
+%% this is the plugin release version.
+{relx, [
+    {release, {emqx_plugin_kafka, "1.0.0"}, [
+        emqx_plugin_kafka,
+        emqx_plugin_helper,
+        brod,
+        kafka_protocol,
+        crc32cer,
+        supervisor3
+    ]},
+    {dev_mode, false},
+    {include_erts, false},
+    {include_src, false}
+]}.
+
+%% Additional info of the plugin
+{emqx_plugrel, [
+    {authors, ["Anonymous"]},
+    {builder, [
+        {name, "Anonymous"},
+        {contact, "anonymous@example.org"},
+        {website, "http://example.com"}
+    ]},
+    {repo, "https://github.com/emqx/emqx-plugin-template"},
+    {functionality, ["Demo"]},
+    {compatibility, [{emqx, "~> 5.7"}]},
+    {description, "Another amazing EMQX plugin."}
+]}.

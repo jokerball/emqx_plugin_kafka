@@ -1,0 +1,11 @@
+{application, emqx_plugin_kafka, [
+    {description, "EMQX 5 Kafka Bridge Plugin - forwards MQTT messages to Kafka with topic routing and base64 encoding"},
+    {vsn, {file, "VERSION"}},
+    {modules, []},
+    {registered, [emqx_plugin_kafka_sup]},
+    {applications, [kernel, stdlib, emqx_plugin_helper, brod]},
+    {mod, {emqx_plugin_kafka_app, []}},
+    {env, []},
+    {licenses, ["Apache-2.0"]},
+    {maintainers, ["FIOT Team"]}
+]}.

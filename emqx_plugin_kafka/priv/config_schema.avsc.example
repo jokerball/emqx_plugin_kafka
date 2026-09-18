@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "emqx_plugin_kafka",
+  "fields": [
+    {
+      "name": "bootstrap_servers",
+      "type": "string",
+      "default": "localhost:9092",
+      "description": "Kafka broker 地址列表，多个用逗号分隔"
+    },
+    {
+      "name": "kafka_topic",
+      "type": "string",
+      "default": "emqx_messages",
+      "description": "默认转发的 Kafka Topic"
+    },
+    {
+      "name": "produce_mode",
+      "type": {"type": "enum", "symbols": ["sync", "async"]},
+      "default": "async",
+      "description": "消息发送模式：sync 同步 / async 异步"
+    }
+  ]
+}

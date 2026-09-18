@@ -1,0 +1,131 @@
+{
+  "type": "record",
+  "name": "emqx_plugin_kafka",
+  "fields": [
+    {
+      "name": "bootstrap_servers",
+      "type": "string",
+      "default": "10.171.25.211:9092",
+      "description": "Kafka broker addresses, comma-separated (e.g., host1:9092,host2:9092)"
+    },
+    {
+      "name": "required_acks",
+      "type": "int",
+      "default": 0,
+      "description": "Kafka producer required acks: 0=none, 1=leader, -1=all"
+    },
+    {
+      "name": "ack_timeout",
+      "type": "int",
+      "default": 1000,
+      "description": "Max wait time (ms) for producer ack"
+    },
+    {
+      "name": "max_retries",
+      "type": "int",
+      "default": 0,
+      "description": "Max retry count for producer"
+    },
+    {
+      "name": "reconnect_cool_down_seconds",
+      "type": "int",
+      "default": 10,
+      "description": "Cooldown seconds before reconnecting after socket error"
+    },
+    {
+      "name": "max_linger_ms",
+      "type": "int",
+      "default": 5,
+      "description": "Max time (ms) to batch messages before sending"
+    },
+    {
+      "name": "max_linger_count",
+      "type": "int",
+      "default": 2000,
+      "description": "Max messages to batch before sending"
+    },
+    {
+      "name": "partition_onwire_limit",
+      "type": "int",
+      "default": 8,
+      "description": "Max onwire requests per partition"
+    },
+    {
+      "name": "partition_buffer_limit",
+      "type": "int",
+      "default": 4096,
+      "description": "Max buffered messages per partition"
+    },
+    {
+      "name": "max_batch_size",
+      "type": "int",
+      "default": 10485760,
+      "description": "Max batch size in bytes"
+    },
+    {
+      "name": "kafka_topic",
+      "type": "string",
+      "default": "mqtt-emqx-ignored",
+      "description": "Default Kafka topic for messages without specific routing rules"
+    },
+    {
+      "name": "ignored_topic_prefixes",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": [],
+      "description": "List of MQTT topic prefixes to ignore (not forward to Kafka)"
+    },
+    {
+      "name": "topic_prefix_mapping",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "prefix_mapping",
+          "fields": [
+            {"name": "mqtt_prefix", "type": "string"},
+            {"name": "kafka_topic", "type": "string"}
+          ]
+        }
+      },
+      "default": [],
+      "description": "MQTT topic prefix to Kafka topic mapping (fuzzy match)"
+    },
+    {
+      "name": "topic_mapping",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "exact_mapping",
+          "fields": [
+            {"name": "mqtt_topic", "type": "string"},
+            {"name": "kafka_topic", "type": "string"}
+          ]
+        }
+      },
+      "default": [],
+      "description": "Exact MQTT topic to Kafka topic mapping"
+    },
+    {
+      "name": "session_subscribed_topic",
+      "type": "string",
+      "default": "tr369.session.subcribed",
+      "description": "Kafka topic for session.subscribed events"
+    },
+    {
+      "name": "on_client_heartbeat",
+      "type": "string",
+      "default": "tr369.client.heartbeat",
+      "description": "Kafka topic for client heartbeat events"
+    },
+    {
+      "name": "publish_base64",
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to base64 encode message payload before forwarding to Kafka"
+    }
+  ]
+}

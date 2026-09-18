@@ -1,0 +1,51 @@
+## Kafka 桥接插件配置
+emqx_plugin_kafka {
+  ## Kafka broker 地址，多个用逗号分隔
+  bootstrap_servers = "10.171.25.211:9092"
+
+  ## 默认 Kafka Topic（没有匹配路由规则的消息）
+  kafka_topic = "mqtt-emqx-ignored"
+
+  ## Kafka 生产者参数（与 EMQX 4 保持一致）
+  required_acks = 0
+  ack_timeout = 1000
+  max_retries = 0
+  reconnect_cool_down_seconds = 10
+  max_linger_ms = 5
+  max_linger_count = 2000
+  partition_onwire_limit = 8
+  partition_buffer_limit = 4096
+  max_batch_size = 10485760
+
+  ## 忽略列表：匹配前缀的 MQTT Topic 不转发到 Kafka
+  ignored_topic_prefixes = ["hdm/usp/endpoint/agent"]
+
+  ## 前缀匹配路由：MQTT Topic 前缀 -> Kafka Topic
+  topic_prefix_mapping = [
+    {mqtt_prefix = "/bulkdata/", kafka_topic = "tr369.bulkdata.topic"}
+  ]
+
+  ## 精确匹配路由：MQTT Topic -> Kafka Topic
+  topic_mapping = [
+    {mqtt_topic = "/usp/controller", kafka_topic = "tr369.access.topic"},
+    {mqtt_topic = "/keepalived/controller", kafka_topic = "tr369.keepalived.channel"}
+  ]
+
+  ## 订阅事件转发的 Kafka Topic
+  session_subscribed_topic = "tr369.session.subcribed"
+
+  ## 消息 payload 是否 base64 编码
+  publish_base64 = true
+}
+## This is a demo config in HOCON format
+## The same format used by EMQX since 5.0
+
+## Kafka 桥接插件配置
+emqx_plugin_kafka {
+  ## Kafka broker 地址
+    bootstrap_servers = "10.171.25.100:9092"
+      ## 默认 Kafka Topic
+        kafka_topic = "emqx_messages"
+          ## 发送模式: sync | async
+            produce_mode = "async"
+ }
