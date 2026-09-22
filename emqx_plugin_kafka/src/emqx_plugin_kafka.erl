@@ -369,7 +369,8 @@ produce_kafka_payload(Key, Message, Event) ->
     Topic = get_kafka_topic_for_event(Event),
     produce_kafka_payload_by_kafka_topic(Key, Message, Topic).
 
-produce_kafka_payload_by_kafka_topic(Key, Message, KafkaTopic) ->
+produce_kafka_payload_by_kafka_topic(Key0, Message, KafkaTopic) ->
+    Key = to_bin(Key0),
     MessageBody = emqx_utils_json:encode(Message),
     Payload = iolist_to_binary(MessageBody),
     logger:warning("kafka_produce: topic=~s key=~s payload_size=~p~n", [KafkaTopic, Key, byte_size(Payload)]),
@@ -382,6 +383,15 @@ produce_kafka_payload_by_kafka_topic(Key, Message, KafkaTopic) ->
             ?SLOG(error, #{msg => "kafka_produce_failed", topic => KafkaTopic, key => Key})
     end,
     ok.
+
+to_bin(V) when is_binary(V) ->
+    V;
+to_bin(V) when is_atom(V) ->
+    atom_to_binary(V, utf8);
+to_bin(V) when is_list(V) ->
+    iolist_to_binary(V);
+to_bin(V) ->
+    iolist_to_binary(io_lib:format("~0p", [V])).
 
 %%--------------------------------------------------------------------
 %% Kafka initialization
