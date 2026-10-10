@@ -78,7 +78,7 @@ unhook() ->
 %% @doc Client heartbeat (PINGREQ) - send periodic heartbeat to Kafka
 on_client_heartbeat(ClientInfo, ConnInfo) ->
     ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
-    Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
+    Protocol = maps:get(protocol, ClientInfo, <<"mqtt">>),
     Keepalive = maps:get(keepalive, ConnInfo, 0),
     SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
     ?SLOG(debug, #{msg => "kafka_client_heartbeat", clientid => ClientId}),
@@ -98,11 +98,15 @@ on_client_heartbeat(ClientInfo, ConnInfo) ->
 %% @doc Client connected - send heartbeat (online)
 on_client_connected(ClientInfo, ConnInfo) ->
     ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
-    Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
+    Protocol = maps:get(protocol, ClientInfo, <<"mqtt">>),
     Keepalive = maps:get(keepalive, ConnInfo, 0),
     SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
-    logger:warning("on_client_connected: clientid=~s protocol=~s keepalive=~p~n", [ClientId, Protocol, Keepalive]),
-    ?SLOG(debug, #{msg => "kafka_client_connected", clientid => ClientId}),
+    ?SLOG(debug, #{
+        msg => "kafka_client_connected",
+        clientid => ClientId,
+        protocol => Protocol,
+        keepalive => Keepalive
+    }),
     Now = now_mill_secs(),
     Payload = [
         {action, <<"heartbeat">>},
@@ -117,13 +121,12 @@ on_client_connected(ClientInfo, ConnInfo) ->
     ok.
 
 %% @doc Client disconnected - send heartbeat (offline with off=1)
-on_client_disconnected(ClientInfo, _Reason, ConnInfo) ->
+on_client_disconnected(ClientInfo, Reason, ConnInfo) ->
     ClientId = maps:get(clientid, ClientInfo, <<"unknown">>),
-    Protocol = maps:get(proto_name, ConnInfo, <<"MQTT">>),
+    Protocol = maps:get(protocol, ClientInfo, <<"mqtt">>),
     Keepalive = maps:get(keepalive, ConnInfo, 0),
     SockType = maps:get(socktype, ConnInfo, <<"tcp">>),
-    logger:warning("on_client_disconnected: clientid=~s reason=~p~n", [ClientId, _Reason]),
-    ?SLOG(debug, #{msg => "kafka_client_disconnected", clientid => ClientId}),
+    ?SLOG(debug, #{msg => "kafka_client_disconnected", clientid => ClientId, reason => Reason}),
     Now = now_mill_secs(),
     Payload = [
         {action, <<"heartbeat">>},
@@ -152,7 +155,7 @@ on_message_publish(Message) ->
             {ok, Message};
         _ ->
             ClientId = maps:get(from, MsgMap, <<"unknown">>),
-            logger:warning("on_message_publish: topic=~s clientid=~s~n", [Topic, ClientId]),
+            ?SLOG(debug, #{msg => "kafka_message_publish", topic => Topic, clientid => ClientId}),
             case topic_in_ignored_list(Topic) of
                 true ->
                     ?SLOG(debug, #{msg => "kafka_topic_ignored", topic => Topic, clientid => ClientId});
@@ -373,14 +376,24 @@ produce_kafka_payload_by_kafka_topic(Key0, Message, KafkaTopic) ->
     Key = to_bin(Key0),
     MessageBody = emqx_utils_json:encode(Message),
     Payload = iolist_to_binary(MessageBody),
-    logger:warning("kafka_produce: topic=~s key=~s payload_size=~p~n", [KafkaTopic, Key, byte_size(Payload)]),
     try
         brod:produce_cb(emqx_repost_worker, KafkaTopic, hash, Key, Payload, fun(_, _) -> ok end),
-        logger:warning("kafka_produce: success topic=~s~n", [KafkaTopic])
+        ?SLOG(debug, #{
+            msg => "kafka_produced",
+            topic => KafkaTopic,
+            key => Key,
+            payload_size => byte_size(Payload)
+        })
     catch
-        _Class:_Reason:_Stack ->
-            logger:error("kafka_produce: FAILED topic=~s key=~s reason=~p~n", [KafkaTopic, Key, _Reason]),
-            ?SLOG(error, #{msg => "kafka_produce_failed", topic => KafkaTopic, key => Key})
+        Class:Reason:Stack ->
+            ?SLOG(error, #{
+                msg => "kafka_produce_failed",
+                topic => KafkaTopic,
+                key => Key,
+                class => Class,
+                reason => Reason,
+                stack => Stack
+            })
     end,
     ok.
 
@@ -398,22 +411,17 @@ to_bin(V) ->
 %%--------------------------------------------------------------------
 
 kafka_init(Config) ->
-    logger:warning("kafka_init: starting with config: ~p~n", [Config]),
-    ?SLOG(warning, #{msg => "kafka_plugin_init_start"}),
     BootstrapServersStr = maps:get(<<"bootstrap_servers">>, Config, <<"10.171.25.211:9092">>),
     DefaultTopic = maps:get(<<"kafka_topic">>, Config, <<"mqtt-emqx-ignored">>),
     AddressList = parse_bootstrap_servers(BootstrapServersStr),
-    logger:warning("kafka_init: bootstrap servers: ~p~n", [AddressList]),
-    ?SLOG(warning, #{msg => "kafka_address_list", addresses => AddressList}),
     KafkaConfig = build_kafka_config(Config),
-    ?SLOG(warning, #{msg => "kafka_producer_config", config => KafkaConfig}),
-    ?SLOG(warning, #{msg => "kafka_default_topic", topic => DefaultTopic}),
-    logger:warning("kafka_init: starting brod application...~n"),
     {ok, _} = application:ensure_all_started(brod),
-    logger:warning("kafka_init: brod started, creating client...~n"),
     ok = brod:start_client(AddressList, emqx_repost_worker, KafkaConfig),
-    logger:warning("kafka_init: brod client created successfully~n"),
-    ?SLOG(warning, #{msg => "kafka_plugin_init_success"}),
+    ?SLOG(debug, #{
+        msg => "kafka_client_started",
+        bootstrap_servers => AddressList,
+        default_topic => DefaultTopic
+    }),
     ok.
 
 %% @doc Parse "host1:9092,host2:9092" -> [{"host1", 9092}, {"host2", 9092}]
@@ -502,32 +510,35 @@ start_link() ->
 
 init([]) ->
     erlang:process_flag(trap_exit, true),
-    logger:warning("emqx_plugin_kafka gen_server init started~n"),
     PluginNameVsn = <<?PLUGIN_NAME, "-", ?PLUGIN_VSN>>,
     try
         Config = emqx_plugin_helper:get_config(PluginNameVsn),
         case map_size(Config) of
             0 ->
-                logger:warning("emqx_plugin_kafka: config is EMPTY~n"
-                               "  Please ensure config file exists at:~n"
-                               "  /opt/emqx/data/configs/emqx_plugin_kafka-1.0.0/config.hocon~n");
+                ?SLOG(warning, #{
+                    msg => "kafka_plugin_config_empty",
+                    hint => "Please ensure the plugin config file exists"
+                });
             _ ->
-                logger:warning("emqx_plugin_kafka: config loaded, keys=~p~n", [maps:keys(Config)])
+                ?SLOG(debug, #{msg => "kafka_plugin_config_loaded", keys => maps:keys(Config)})
         end,
-        ?SLOG(warning, #{msg => "kafka_plugin_gen_server_init", config => Config}),
         persistent_term:put(?MODULE, Config),
         %% Initialize Kafka client
         try
             kafka_init(Config)
         catch
             Class:Reason:Stack ->
-                ?SLOG(error, #{msg => "kafka_init_failed", class => Class, reason => Reason, stack => Stack}),
-                logger:error("kafka_init failed: ~p:~p~nstack: ~p~n", [Class, Reason, Stack])
+                ?SLOG(error, #{msg => "kafka_init_failed", class => Class, reason => Reason, stack => Stack})
         end,
         {ok, #{config => Config}}
     catch
         InitClass:InitReason:InitStack ->
-            logger:error("emqx_plugin_kafka init crashed: ~p:~p~nstack: ~p~n", [InitClass, InitReason, InitStack]),
+            ?SLOG(error, #{
+                msg => "kafka_plugin_init_crashed",
+                class => InitClass,
+                reason => InitReason,
+                stack => InitStack
+            }),
             {stop, {init_failed, InitClass, InitReason}}
     end.
 
