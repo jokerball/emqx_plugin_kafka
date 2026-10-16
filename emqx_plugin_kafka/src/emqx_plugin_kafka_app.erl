@@ -25,7 +25,7 @@ start(_StartType, _StartArgs) ->
     {ok, Sup} = emqx_plugin_kafka_sup:start_link(),
     emqx_plugin_kafka:hook(),
     emqx_ctl:register_command(emqx_plugin_kafka, {emqx_plugin_kafka_cli, cmd}),
-    ?SLOG(debug, #{msg => "emqx_plugin_kafka_started"}),
+    ?SLOG(info, #{msg => "emqx_plugin_kafka_started"}),
     {ok, Sup}.
 
 stop(_State) ->

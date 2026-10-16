@@ -22,6 +22,7 @@
     on_config_changed/2,
     on_health_check/1,
     get_config/0
+
 ]).
 
 %% Hook callbacks
@@ -417,7 +418,7 @@ kafka_init(Config) ->
     KafkaConfig = build_kafka_config(Config),
     {ok, _} = application:ensure_all_started(brod),
     ok = brod:start_client(AddressList, emqx_repost_worker, KafkaConfig),
-    ?SLOG(debug, #{
+    ?SLOG(info, #{
         msg => "kafka_client_started",
         bootstrap_servers => AddressList,
         default_topic => DefaultTopic
@@ -520,7 +521,10 @@ init([]) ->
                     hint => "Please ensure the plugin config file exists"
                 });
             _ ->
-                ?SLOG(debug, #{msg => "kafka_plugin_config_loaded", keys => maps:keys(Config)})
+                ?SLOG(info, #{
+                    msg => "kafka_plugin_config_loaded",
+                    config => Config
+                })
         end,
         persistent_term:put(?MODULE, Config),
         %% Initialize Kafka client
