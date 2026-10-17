@@ -12,10 +12,10 @@ ack_timeout = 1000
 max_retries = 0
 reconnect_cool_down_seconds = 10
 max_linger_ms = 5
-max_linger_count = 2000
-partition_onwire_limit = 8
-partition_buffer_limit = 4096
-max_batch_size = 10485760
+max_linger_count = 500
+partition_onwire_limit = 4
+partition_buffer_limit = 1024
+max_batch_size = 1048576
 
 ## 忽略列表：匹配前缀的 MQTT Topic 不转发到 Kafka
 ignored_topic_prefixes = ["hdm/usp/endpoint/agent"]

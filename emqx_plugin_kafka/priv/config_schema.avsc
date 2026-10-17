@@ -41,25 +41,25 @@
     {
       "name": "max_linger_count",
       "type": "int",
-      "default": 2000,
+      "default": 500,
       "description": "Max messages to batch before sending"
     },
     {
       "name": "partition_onwire_limit",
       "type": "int",
-      "default": 8,
+      "default": 4,
       "description": "Max onwire requests per partition"
     },
     {
       "name": "partition_buffer_limit",
       "type": "int",
-      "default": 4096,
+      "default": 1024,
       "description": "Max buffered messages per partition"
     },
     {
       "name": "max_batch_size",
       "type": "int",
-      "default": 10485760,
+      "default": 1048576,
       "description": "Max batch size in bytes"
     },
     {

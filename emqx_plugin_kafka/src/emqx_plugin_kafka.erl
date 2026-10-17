@@ -360,7 +360,10 @@ transform_payload(Payload) ->
     NeedBase64 = maps:get(<<"publish_base64">>, Config, true),
     case NeedBase64 of
         true ->
-            list_to_binary(base64:encode_to_string(Payload));
+            %% base64:encode/1 returns a binary directly, avoiding the
+            %% transient Erlang string (list) that encode_to_string creates,
+            %% which costs ~8 bytes per character (~10x the payload size).
+            base64:encode(Payload);
         false ->
             Payload
     end.
@@ -445,10 +448,10 @@ build_kafka_config(Config) ->
         {reconnect_cool_down_seconds, get_int(Config, <<"reconnect_cool_down_seconds">>, 10)},
         {query_api_versions, true},
         {max_linger_ms, get_int(Config, <<"max_linger_ms">>, 5)},
-        {max_linger_count, get_int(Config, <<"max_linger_count">>, 2000)},
-        {partition_onwire_limit, get_int(Config, <<"partition_onwire_limit">>, 8)},
-        {partition_buffer_limit, get_int(Config, <<"partition_buffer_limit">>, 4096)},
-        {max_batch_size, get_int(Config, <<"max_batch_size">>, 10485760)},
+        {max_linger_count, get_int(Config, <<"max_linger_count">>, 500)},
+        {partition_onwire_limit, get_int(Config, <<"partition_onwire_limit">>, 4)},
+        {partition_buffer_limit, get_int(Config, <<"partition_buffer_limit">>, 1024)},
+        {max_batch_size, get_int(Config, <<"max_batch_size">>, 1048576)},
         {auto_start_producers, true}
     ].
 
